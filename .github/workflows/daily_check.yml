@@ -1,31 +1,30 @@
-name: Daily Rank Check
+name: Daily Rank Check WorkFlow
 
 on:
   schedule:
-    - cron: '0 0 * * *' # 매일 정해진 시간에 실행
-  workflow_dispatch:      # 수동으로 실행 버튼 활성화
+    - cron: '0 0 * * *' # 매일 한국 시간 오전 9시 자동 실행
+  workflow_dispatch:      # 우리가 'Run workflow' 버튼 눌러서 수동 실행 가능하게 함
 
 jobs:
-  build:
+  run_bot:
     runs-on: ubuntu-latest
     steps:
-      # [중요] 1단계: 레포지토리의 파일들을 서버로 가져옵니다.
-      - name: Checkout Repository
+      # 1. 깃허브 저장소의 파일을 서버로 가져옴 (필수!)
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2단계: 파이썬 설치
+      # 2. 파이썬 설치
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.10'
 
-      # 3단계: 필요한 라이브러리 설치 (에러 방지용)
+      # 3. 필요한 라이브러리 설치
       - name: Install dependencies
         run: |
-          pip install selenium webdriver-manager
+          pip install requests
 
-      # [중요] 4단계: 파일 위치 확인 및 실행
-      - name: Run Python Script
+      # 4. 파이썬 스크립트 실행
+      - name: Execute Script
         run: |
-          ls -R  # 파일이 있는지 먼저 보여줘
-          python rank_bot.py  # <--- 이 줄이 실제로 내 코드를 실행하는 핵심입니다!
+          python rank_bot.py
