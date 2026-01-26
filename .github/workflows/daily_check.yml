@@ -27,7 +27,5 @@ jobs:
       # [중요] 4단계: 파일 위치 확인 및 실행
       - name: Run Python Script
         run: |
-          # 파일이 어디 있는지 확인하기 위해 목록 출력 (디버깅용)
-          ls -R
-          # 파일 실행 (파일 이름이 rank_bot.py 인지 꼭 확인하세요!)
-          python rank_bot.py
+          ls -R  # 파일이 있는지 먼저 보여줘
+          python rank_bot.py  # <--- 이 줄이 실제로 내 코드를 실행하는 핵심입니다!
