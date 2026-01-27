@@ -7,32 +7,32 @@ CHAT_ID = "8479493770"
 
 def get_naver_rank(keyword, target_name):
     try:
-        # 봇 감지를 피하기 위해 실제 아이폰에서 검색하는 주소 형식을 사용합니다.
+        # 네이버 플레이스 데이터를 직접 가져오는 API 주소
         url = f"https://m.search.naver.com/p/api/search.naver?where=m_local&query={keyword}&display=100&start=1"
         headers = {
             'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
             'Referer': 'https://m.search.naver.com/'
         }
         
-        res = requests.get(url, headers=headers, timeout=10)
+        res = requests.get(url, headers=headers, timeout=15)
         content = res.text
 
-        # 1. 광고 업체 아이디들을 먼저 수집합니다 (순위 제외용)
-        ad_ids = re.findall(r'\"adId\":\"(\d+)\"', content)
-        
-        # 2. 모든 업체 리스트를 가져옵니다.
-        # "id":"123", "title":"업체명" 구조를 파싱합니다.
-        items = re.findall(r'\"id\":\"(\d+)\".*?\"title\":\"([^"]+)\"', content)
-        
-        places = []
-        for item_id, title in items:
-            # 광고 아이디 리스트에 없는 '진짜' 업체만 순위에 포함시킵니다.
-            if item_id not in ad_ids:
-                # 불필요한 중복 제거
-                if title not in places:
-                    places.append(title)
+        # 1. 광고(AD) 섹션과 일반(LS) 섹션을 구분하여 데이터 추출
+        # 광고를 포함하지 않는 실제 순위 리스트(ls)만 타겟팅합니다.
+        ls_part = content.split('"ls":[')
+        if len(ls_part) < 2:
+            return "데이터 수집 실패"
 
-        # 3. 내 업체 순위 매칭 (공백 무시)
+        # 실제 순위 업체들의 제목만 추출
+        found_titles = re.findall(r'\"title\":\"([^"]+)\"', ls_part[1])
+        
+        # 중복 및 노이즈 제거
+        places = []
+        for t in found_titles:
+            if len(t) > 1 and t not in places:
+                places.append(t)
+
+        # 2. 내 업체 순위 매칭
         rank = 0
         target_clean = target_name.replace(" ", "")
         for idx, name in enumerate(places, 1):
@@ -46,11 +46,11 @@ def get_naver_rank(keyword, target_name):
             return "100위권 밖"
             
     except Exception as e:
-        return f"분석 에러"
+        return "분석 오류"
 
 if __name__ == "__main__":
-    # 요청하신 검색어와 타겟 매칭
+    # 요청하신 검색 키워드와 업체명
     res1 = get_naver_rank('사당술집', '사당우물')
-    res2 = get_naver_rank('교대술집', '서초우물') # 실제 7위로 나오는지 확인 대상
+    res2 = get_naver_rank('교대술집', '서초우물') # 여기서 7위가 나와야 성공입니다.
     
-    result_text = f"📊 [광고 제외 정밀 리포트]\n\n🍺 사당술집 내 '사당우물': {res1}\n🍺 교대술집 내 '서초
+    result_text = f"📊 [정밀 순위 리포트]\n\n🍺 사당술집 ->
