@@ -1,26 +1,31 @@
-name: Daily Rank Check
+name: Daily Ranking Bot
 
 on:
   schedule:
-    - cron: '0 2 * * *'   # 한국 오전 11시
-    - cron: '0 9 * * *'   # 한국 오후 6시
-  workflow_dispatch:
+    # GitHub Actions는 UTC 기준이므로, 한국 시간(KST) 11시는 UTC 02시입니다.
+    - cron: '0 2 * * *'
+  workflow_dispatch: # 이 설정을 넣어야 'Run workflow' 버튼이 생겨서 바로 테스트 가능합니다.
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.10'
+          python-version: '3.9'
 
       - name: Install dependencies
         run: |
-          pip install requests selenium webdriver-manager beautifulsoup4
+          pip install requests beautifulsoup4  # 필요한 라이브러리를 적으세요
 
-      - name: Run Script
-        run: python rank_bot.py
+      - name: Run Ranking Script
+        # 이 부분이 핵심입니다! GitHub Secrets에 저장한 값을 프로그램으로 전달합니다.
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+        run: python your_script_name.py # 실제 파이썬 파일 이름으로 바꾸세요
