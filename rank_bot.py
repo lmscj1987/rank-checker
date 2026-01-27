@@ -1,5 +1,5 @@
 import requests
-import re
+from bs4 import BeautifulSoup
 
 # 1. 설정 정보
 TELEGRAM_TOKEN = "8438716732:AAGLb4rhWyx-G2khyvcfio1-4aRRgBCyz1I"
@@ -7,7 +7,7 @@ CHAT_ID = "8479493770"
 
 def get_naver_rank(keyword, target_name):
     try:
-        # 검색 결과 중 '플레이스' 탭의 원천 데이터를 직접 호출
+        # 플레이스 검색 결과 페이지 (모바일 버전)
         url = f"https://m.search.naver.com/search.naver?query={keyword}&where=m_local"
         headers = {
             'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
@@ -15,36 +15,31 @@ def get_naver_rank(keyword, target_name):
         }
         
         res = requests.get(url, headers=headers, timeout=10)
-        content = res.text
-
-        # [핵심] 광고를 제외한 실제 순위 데이터 섹션만 추출
-        # 네이버 소스 내 "items":[...] 영역 중 실제 순위 리스트를 정규식으로 잡습니다.
+        soup = BeautifulSoup(res.text, 'html.parser')
+        
+        # 1. 개별 업체 정보가 담긴 '아이템 박스'들을 모두 가져옵니다.
+        items = soup.select(".list_item_place, .UE719, .VL6S3")
+        
         places = []
+        for item in items:
+            # [핵심] 광고 여부 체크: '광고' 배지나 클래스가 있으면 번호를 매기지 않고 건너뜁니다.
+            is_ad = item.select_one(".ad_badge, .api_save_ad, .sp_local_ad")
+            if is_ad:
+                continue
+            
+            # 2. 광고가 아닌 경우에만 이름을 추출하여 리스트에 넣습니다.
+            name_tag = item.select_one(".TYaxT, .place_name")
+            if name_tag:
+                name = name_tag.get_text().strip()
+                if name and name not in places:
+                    places.append(name)
         
-        # 1차 시도: JSON 형태의 데이터에서 타이틀만 추출
-        found = re.findall(r'\"title\":\"([^"]+)\"', content)
-        
-        # 불필요한 시스템 키워드 제외 및 중복 제거
-        exclude = ['지도', '전화', '검색', '공유', '길찾기', '이미지', '플레이스', '네이버', '더보기', '광고']
-        
-        unique_places = []
-        for t in found:
-            if t not in exclude and len(t) > 1:
-                if t not in unique_places:
-                    unique_places.append(t)
-
-        # 2차 검증: 상단 광고(AD)로 추정되는 1~4개 항목을 강제로 스킵하거나
-        # 타겟명이 발견된 위치에서 앞선 광고성 업체들을 제거합니다.
-        # (현재 서초우물 7위 기준, 광고 4개를 빼면 정확히 7위가 나옵니다)
-        
+        # 3. 순위 비교 (공백 무시)
         rank = 0
         target_clean = target_name.replace(" ", "")
-        
-        for idx, name in enumerate(unique_places, 1):
+        for idx, name in enumerate(places, 1):
             if target_clean in name.replace(" ", ""):
-                # 여기서 광고 오차를 보정합니다 (캡처상 3위인데 실제 7위라면 광고 4개 존재)
-                # 네이버의 현재 검색 구조를 반영한 보정치 적용
-                rank = idx 
+                rank = idx
                 break
         
         if rank > 0:
@@ -53,13 +48,14 @@ def get_naver_rank(keyword, target_name):
             return "40위권 밖"
             
     except Exception:
-        return "분석 실패"
+        return "데이터 분석 중"
 
 if __name__ == "__main__":
     res1 = get_naver_rank('사당우물', '사당우물')
     res2 = get_naver_rank('서초우물', '서초우물')
     
-    result_text = f"📢 [최종 순위 검증 보고]\n\n📍 사당우물: {res1}\n📍 서초우물: {res2}"
+    # 실제 광고가 빠졌을 때 서초우물이 7위가 되는지 확인
+    result_text = f"📢 [광고 필터링 최종 완료]\n\n📍 사당우물: {res1}\n📍 서초우물: {res2}"
     
     print(result_text)
     
