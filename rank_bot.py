@@ -2,13 +2,13 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
-# [보안] GitHub Secrets에서 안전하게 가져오는 설정
+# GitHub Secrets에서 가져온 보안 정보
 token = os.environ.get('TELEGRAM_TOKEN')
 chat_id = os.environ.get('CHAT_ID')
 
 def get_ranking():
     """어제 성공했던 바로 그 크롤링 로직"""
-    # 어제 우리가 결과값을 잘 받아왔던 주소와 설정입니다.
+    # 순위를 확인할 네이버 검색 주소
     url = "https://search.naver.com/search.naver?query=원하는키워드" 
     headers = {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
@@ -18,12 +18,11 @@ def get_ranking():
         response = requests.get(url, headers=headers)
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # [핵심] 어제 순위를 정확히 짚어냈던 태그 로직
-        # 실제 네이버 쇼핑이나 광고 영역 등 어제 맞춘 클래스명을 그대로 사용합니다.
-        items = soup.select('.lst_item') # 어제 성공한 태그로 고정!
+        # [핵심] 어제 순위를 정확히 짚어냈던 클래스명 (예: .lst_item 또는 .item_info)
+        items = soup.select('.lst_item') 
         
         for i, item in enumerate(items, 1):
-            if "본인업체명" in item.text: # 어제 찾았던 그 이름
+            if "본인업체명" in item.text: # 실제 업체명을 적어주세요
                 return f"현재 {i}위입니다! 🎉"
         
         return "순위권 내에서 찾을 수 없습니다."
@@ -32,9 +31,9 @@ def get_ranking():
         return f"크롤링 중 오류 발생: {e}"
 
 def send_telegram(message):
-    """텔레그램 전송"""
+    """텔레그램 메시지 전송"""
     if not token or not chat_id:
-        print("토큰이나 ID가 설정되지 않았습니다.")
+        print("에러: TELEGRAM_TOKEN 또는 CHAT_ID가 설정되지 않았습니다.")
         return
 
     url = f"https://api.telegram.org/bot{token}/sendMessage"
@@ -42,6 +41,6 @@ def send_telegram(message):
     requests.post(url, json=payload)
 
 if __name__ == "__main__":
-    # 어제 작동했던 그 로직 그대로 실행
+    # 순위 계산 후 결과 전송
     rank_result = get_ranking()
-    send_telegram(f"📊 실시간 순위 보고\n{rank_result}")
+    send_telegram(f"📊 [정기 순위 보고]\n{rank_result}")
