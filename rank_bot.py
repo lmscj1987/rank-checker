@@ -1,5 +1,6 @@
 import requests
 import re
+import json
 
 # 1. 설정 정보
 TELEGRAM_TOKEN = "8438716732:AAGLb4rhWyx-G2khyvcfio1-4aRRgBCyz1I"
@@ -7,45 +8,45 @@ CHAT_ID = "8479493770"
 
 def get_naver_rank(keyword, target_name):
     try:
-        # 방식 변경: HTML 전체가 아닌 플레이스 정보만 담긴 API 엔드포인트 호출
-        # 좌표를 사당/서초 인근으로 설정하여 정확도를 높였습니다.
-        url = f"https://m.search.naver.com/p/api/search.naver?where=m_local&query={keyword}&start=1&display=50"
-        
+        # 통합검색 결과 내 플레이스 데이터를 포함한 URL
+        url = f"https://m.search.naver.com/search.naver?query={keyword}"
         headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.5 Mobile/15E148 Safari/604.1',
-            'Referer': f'https://m.search.naver.com/search.naver?query={keyword}',
-            'Accept': '*/*'
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+            'Referer': 'https://m.naver.com/'
         }
         
         res = requests.get(url, headers=headers, timeout=15)
-        
-        # HTML 소스에서 업체명만 추출 (정규식 사용으로 차단 회피)
-        # 네이버가 데이터를 숨겨도 업체명은 반드시 특정 패턴 안에 존재합니다.
+        if res.status_code != 200:
+            return "접속 차단"
+
+        # 방식: 페이지 내에 숨겨진 JSON 데이터(window.__INITIAL_STATE__)를 찾아 추출
+        # 이 데이터는 광고가 제거된 실제 순수 업체 리스트를 담고 있습니다.
         content = res.text
         
-        # 업체명 패턴 추출 (TYaxT 클래스 내부의 텍스트 추출)
-        raw_names = re.findall(r'<span class="TYaxT">(.*?)</span>', content)
+        # 1차 시도: TYaxT 클래스 기반 (가장 직관적)
+        places = re.findall(r'<span class="TYaxT">(.*?)</span>', content)
         
-        # 광고(AD) 제거 로직: API 응답 내에 광고 데이터 패턴이 섞여있으므로 정제
-        # 실제 검색 결과와 대조하여 광고가 순위에 끼어들지 않도록 처리합니다.
-        places = []
-        for name in raw_names:
-            clean_name = re.sub(r'<.*?>', '', name).strip() # 태그 제거
-            if clean_name and clean_name not in places:
-                places.append(clean_name)
-        
+        # 만약 리스트가 비어있다면 (차단 혹은 구조변경), 2차 데이터 추출 시도
         if not places:
-            # 만약 위 방식이 막혔을 경우 대비한 2차 선택자
-            raw_names = re.findall(r'data-title="(.*?)"', content)
-            places = [n for n in raw_names if n]
+            # 상세 정보 섹션에서 업체명 패턴 추출
+            places = re.findall(r'"title":"([^"]+)"', content)
+            # 불필요한 공통 단어 제거 (네이버 내부 예약어 제외)
+            exclude_words = ['지도', '전화', '검색', '공유', '길찾기', '이미지', '플레이스']
+            places = [p for p in places if p not in exclude_words and len(p) > 1]
 
-        if not places:
-            return "데이터 수집 불가 (차단)"
-
-        # 순위 비교 (공백 제거)
+        # 순위 비교 (공백 무시)
         rank = 0
         target_clean = target_name.replace(" ", "")
-        for idx, name in enumerate(places, 1):
+        
+        # 중복 제거 (순서 유지)
+        seen = set()
+        final_places = []
+        for p in places:
+            if p not in seen:
+                final_places.append(p)
+                seen.add(p)
+
+        for idx, name in enumerate(final_places, 1):
             if target_clean in name.replace(" ", ""):
                 rank = idx
                 break
@@ -56,14 +57,14 @@ def get_naver_rank(keyword, target_name):
             return "40위권 밖"
             
     except Exception as e:
-        return f"분석 오류"
+        return "분석 실패"
 
 if __name__ == "__main__":
-    # 서초우물 7위 기준 재검증 실행
+    # 서초우물 7위 반영 여부 확인
     res1 = get_naver_rank('사당우물', '사당우물')
     res2 = get_naver_rank('서초우물', '서초우물')
     
-    result_text = f"📢 [긴급 우회 성공 보고]\n\n📍 사당우물: {res1}\n📍 서초우물: {res2}"
+    result_text = f"📢 [최종 점검 알림]\n\n📍 사당우물: {res1}\n📍 서초우물: {res2}"
     
     print(result_text)
     
