@@ -2,42 +2,53 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
-# [보안 적용] GitHub Secrets에 저장한 값을 불러옵니다.
+# [보안] GitHub Secrets에서 값을 안전하게 가져옵니다.
 token = os.environ.get('TELEGRAM_TOKEN')
 chat_id = os.environ.get('CHAT_ID')
 
-def send_telegram_message(message):
-    """텔레그램으로 메시지를 전송합니다."""
-    if not token or not chat_id:
-        print("에러: TELEGRAM_TOKEN 또는 CHAT_ID가 설정되지 않았습니다.")
-        return
-
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = {
-        "chat_id": chat_id,
-        "text": message
+def get_ranking():
+    """어제 만든 순위 크롤링 로직"""
+    # 1. 대상 URL (어제 설정한 주소)
+    url = "https://search.naver.com/search.naver?query=원하는키워드" 
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
     
     try:
-        response = requests.post(url, json=payload)
-        if response.status_code == 200:
-            print("메시지 전송 성공!")
-        else:
-            print(f"메시지 전송 실패: {response.status_code}, {response.text}")
-    except Exception as e:
-        print(f"오류 발생: {e}")
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # 2. 순위 요소 찾기 (어제 사용한 태그와 클래스명)
+        # 예: 검색 결과 리스트 가져오기
+        items = soup.select('.item_info') # <-- 이 부분을 어제 성공했던 클래스명으로 확인하세요!
+        
+        rank = "순위권 밖"
+        for i, item in enumerate(items):
+            if "내업체명" in item.text: # <-- 본인의 업체명/상품명
+                rank = f"현재 {i+1}위입니다! 🎉"
+                break
+        return rank
 
-def main():
-    # 여기에 어제 만든 크롤링 로직을 넣으시면 됩니다.
-    # 예시:
-    target_url = "https://example.com" # 순위 확인할 사이트 주소
-    print(f"{target_url}에서 순위 확인 중...")
-    
-    # 임시 결과 메시지 (실제 로직으로 대체하세요)
-    result_text = "오늘의 순위 확인 결과가 정상적으로 생성되었습니다!"
-    
-    # 텔레그램 전송
-    send_telegram_message(result_text)
+    except Exception as e:
+        return f"순위 확인 중 오류 발생: {e}"
+
+def send_telegram(message):
+    """텔레그램 메시지 전송"""
+    if not token or not chat_id:
+        print("에러: 토큰 또는 CHAT_ID가 없습니다.")
+        return
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": message}
+    requests.post(url, json=payload)
 
 if __name__ == "__main__":
-    main()
+    # 1. 순위 가져오기
+    current_rank = get_ranking()
+    
+    # 2. 메시지 구성
+    final_msg = f"📊 [데일리 순위 리포트]\n결과: {current_rank}"
+    
+    # 3. 전송
+    send_telegram(final_msg)
+    print("전송 완료!")
