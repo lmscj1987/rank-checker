@@ -2,11 +2,17 @@ name: Daily Ranking Check
 
 on:
   schedule:
-    - cron: '0 2 * * *' # 한국시간 오전 11시 (UTC 02:00)
-  workflow_dispatch: # 수동 테스트 버튼 활성화
+    # 한국 시간(KST) 기준 오전 11시 -> UTC 오전 2시
+    # 한국 시간(KST) 기준 오후 6시 -> UTC 오전 9시
+    # 일요일(0)을 제외한 월~토(1-6) 실행
+    - cron: '0 2 * * 1-6'
+    - cron: '0 9 * * 1-6'
+  
+  # 필요할 때 수동으로 실행해볼 수 있는 버튼 생성
+  workflow_dispatch:
 
 jobs:
-  run_ranking_job:
+  run_bot:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -18,9 +24,11 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: pip install requests beautifulsoup4
+        run: |
+          pip install requests beautifulsoup4
 
-      - name: Run bot
+      - name: Execute Script
+        # GitHub Secrets에 등록한 토큰과 ID를 안전하게 불러옵니다.
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
