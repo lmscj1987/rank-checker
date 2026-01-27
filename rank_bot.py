@@ -7,46 +7,54 @@ CHAT_ID = "8479493770"
 
 def get_naver_rank(keyword, target_name):
     try:
-        # 주신 코드의 모바일 검색 방식 유지 (40위까지 나오도록 where=m_local 적용)
+        # 플레이스 검색 리스트를 직접 호출하여 순위 정확도 확보
         url = f"https://m.search.naver.com/search.naver?query={keyword}&where=m_local"
         headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1'
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1'
         }
         res = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # [핵심] 주신 코드에서 가장 정확했던 선택자만 사용
-        place_elements = soup.select(".place_name, .L_0S_, .name, .TYaxT") 
+        # 1. 광고 업체 제외 로직: 광고는 보통 'sp_local_ad' 클래스를 포함합니다.
+        # 2. 업체명 추출: 현재 가장 정확한 태그인 .TYaxT를 기반으로 추출
+        items = soup.select(".list_item_place, .UE719") # 플레이스 개별 아이템 박스
         
-        # 중복 제거 및 순서 유지
         places = []
-        for el in place_elements:
-            name = el.get_text().strip()
-            if name and name not in places:
-                places.append(name)
-        
-        # 순위 계산 (띄어쓰기 무시 로직 포함)
+        for item in items:
+            # 광고 뱃지가 있는지 확인하여 광고는 순위에서 제외
+            is_ad = item.select_one(".api_save_ad, .ad_badge")
+            if is_ad:
+                continue
+            
+            # 업체명 찾기
+            name_tag = item.select_one(".TYaxT, .place_name")
+            if name_tag:
+                name = name_tag.get_text().strip()
+                if name not in places:
+                    places.append(name)
+
+        # 실제 순위 계산 (공백 제거 비교)
         rank = 0
-        target_name_clean = target_name.replace(" ", "")
+        target_clean = target_name.replace(" ", "")
         for idx, name in enumerate(places, 1):
-            if target_name_clean in name.replace(" ", ""):
+            if target_clean in name.replace(" ", ""):
                 rank = idx
                 break
         
         if rank > 0:
-            return f"현재 {rank}위"
+            return f"{rank}위"
         else:
             return "40위권 밖"
             
-    except Exception as e:
+    except Exception:
         return "분석 오류"
 
 if __name__ == "__main__":
-    # 키워드와 업체명 설정
+    # 점검 결과: 서초우물 7위 반영 확인용
     res1 = get_naver_rank('사당우물', '사당우물')
     res2 = get_naver_rank('서초우물', '서초우물')
     
-    result_text = f"📢 [순위 확인 알림]\n\n📍 사당우물: {res1}\n📍 서초우물: {res2}"
+    result_text = f"📢 [실시간 순위 보고]\n\n📍 사당우물: {res1}\n📍 서초우물: {res2}"
     
     print(result_text)
     
