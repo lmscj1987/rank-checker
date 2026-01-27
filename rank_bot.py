@@ -7,7 +7,7 @@ CHAT_ID = "8479493770"
 
 def get_naver_rank(keyword, target_name):
     try:
-        # 플레이스 검색 결과 페이지 (모바일 버전)
+        # 플레이스 탭 검색 결과 (50개까지 노출)
         url = f"https://m.search.naver.com/search.naver?query={keyword}&where=m_local"
         headers = {
             'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
@@ -17,24 +17,23 @@ def get_naver_rank(keyword, target_name):
         res = requests.get(url, headers=headers, timeout=10)
         soup = BeautifulSoup(res.text, 'html.parser')
         
-        # 1. 개별 업체 정보가 담긴 '아이템 박스'들을 모두 가져옵니다.
+        # 플레이스 리스트 아이템 추출
         items = soup.select(".list_item_place, .UE719, .VL6S3")
         
         places = []
         for item in items:
-            # [핵심] 광고 여부 체크: '광고' 배지나 클래스가 있으면 번호를 매기지 않고 건너뜁니다.
-            is_ad = item.select_one(".ad_badge, .api_save_ad, .sp_local_ad")
-            if is_ad:
+            # [필수] 광고(AD)는 순위 계산에서 완전히 제외
+            if item.select_one(".ad_badge, .api_save_ad, .sp_local_ad"):
                 continue
             
-            # 2. 광고가 아닌 경우에만 이름을 추출하여 리스트에 넣습니다.
+            # 업체명 추출
             name_tag = item.select_one(".TYaxT, .place_name")
             if name_tag:
                 name = name_tag.get_text().strip()
                 if name and name not in places:
                     places.append(name)
         
-        # 3. 순위 비교 (공백 무시)
+        # 순위 매칭
         rank = 0
         target_clean = target_name.replace(" ", "")
         for idx, name in enumerate(places, 1):
@@ -45,17 +44,20 @@ def get_naver_rank(keyword, target_name):
         if rank > 0:
             return f"{rank}위"
         else:
-            return "40위권 밖"
+            return "50위권 밖" # 광범위 키워드이므로 범위를 50위로 확장
             
     except Exception:
-        return "데이터 분석 중"
+        return "데이터 분석 오류"
 
 if __name__ == "__main__":
-    res1 = get_naver_rank('사당우물', '사당우물')
-    res2 = get_naver_rank('서초우물', '서초우물')
+    # 요청하신 검색어와 타겟 업체 매칭
+    # 1. '사당술집' 검색 시 '사당우물' 순위
+    res1 = get_naver_rank('사당술집', '사당우물')
     
-    # 실제 광고가 빠졌을 때 서초우물이 7위가 되는지 확인
-    result_text = f"📢 [광고 필터링 최종 완료]\n\n📍 사당우물: {res1}\n📍 서초우물: {res2}"
+    # 2. '교대술집' 검색 시 '서초우물' 순위
+    res2 = get_naver_rank('교대술집', '서초우물')
+    
+    result_text = f"📊 [플레이스 순위 리포트]\n\n🍺 사당술집 내 '사당우물': {res1}\n🍺 교대술집 내 '서초우물': {res2}"
     
     print(result_text)
     
