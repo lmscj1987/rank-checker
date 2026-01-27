@@ -2,13 +2,11 @@ name: Daily Ranking Check
 
 on:
   schedule:
-    # GitHub Actions는 UTC 기준입니다. 한국 시간(KST) 오전 11시는 UTC 오전 2시입니다.
-    - cron: '0 2 * * *'
-  # GitHub 사이트에서 버튼을 눌러 바로 실행해볼 수 있게 합니다.
-  workflow_dispatch:
+    - cron: '0 2 * * *' # 한국시간 오전 11시 (UTC 02:00)
+  workflow_dispatch: # 수동 테스트 버튼 활성화
 
 jobs:
-  run_bot:
+  run_ranking_job:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -20,11 +18,9 @@ jobs:
           python-version: '3.9'
 
       - name: Install dependencies
-        run: |
-          pip install requests beautifulsoup4
+        run: pip install requests beautifulsoup4
 
-      - name: Execute Script
-        # GitHub Secrets에 저장한 값을 프로그램 환경 변수로 전달합니다.
+      - name: Run bot
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           CHAT_ID: ${{ secrets.CHAT_ID }}
